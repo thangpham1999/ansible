@@ -1,0 +1,41 @@
+---
+- hosts: localhost
+  become: yes
+  gather_facts: yes
+
+  tasks:
+    - name: Checkout Gitlab repository has terraform
+      git:
+        repo: "{{ Gitlab_url }}"
+        dest: "{{ playbook_dir }}/terraform/"
+    
+    - name: init the terraform
+      shell: |
+        cd {{ playbook_dir }}/terraform/;
+        terraform init \
+        -backend-config="address={{ TF_ADDRESS }}" \
+        -backend-config="lock_address={{ TF_ADDRESS }}/lock" \
+        -backend-config="unlock_address={{ TF_ADDRESS }}/lock" \
+        -backend-config="username={{ TF_USERNAME }}" \
+        -backend-config="password={{ TF_PASSWORD }}" \
+        -backend-config=lock_method=POST \
+        -backend-config=unlock_method=DELETE \
+        -backend-config=retry_wait_min=5
+
+    - name: Plan the terraform
+      shell: |
+        cd {{ playbook_dir }}/terraform/;
+        terraform plan \
+        -var tf_vault_addr="{{ vault_addr }}" \
+        -var tf_vault_token="{{ vault_token }}" \
+        -out=plan.tfplan;
+
+    - name: Apply the terraform
+      shell: |
+        cd {{ playbook_dir }}/terraform/;
+        terraform apply -auto-approve plan.tfplan;
+      register: terra_result
+  
+    - name: show terra_result
+      debug:
+        var: terra_result
